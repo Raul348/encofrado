@@ -373,6 +373,82 @@ namespace Encofrado.UI
             }
         }
 
+        // ================================================================== CORTAR INTERSECCIONES
+
+        public static void Cortar(Graphics g, RectangleF r, FormValues v)
+        {
+            Pieza[] orden = Cortador.Ordenes[Math.Max(0, Math.Min(Cortador.Ordenes.Length - 1, v.I("orden")))];
+            bool columnaPrimero = Array.IndexOf(orden, Pieza.Columna) < Array.IndexOf(orden, Pieza.Viga);
+
+            SplitH(new RectangleF(r.X, r.Y, r.Width, r.Height - 110), 0.5f, out RectangleF a, out RectangleF b);
+            Caption(g, a, "ANTES (planta)");
+            Caption(g, b, "DESPUÉS");
+            Union(g, a, false, columnaPrimero);
+            Union(g, b, true, columnaPrimero);
+
+            // Orden de prioridad con el color de cada elemento.
+            float x = r.X + 16, y = r.Bottom - 96;
+            using (var tb = new SolidBrush(Ink)) g.DrawString("Prioridad (queda completo primero):", Normal, tb, x, y);
+            y += 22;
+            foreach (Pieza p in orden)
+            {
+                string txt = Piezas.Plural(p);
+                SizeF sz = g.MeasureString(txt, Normal);
+                using (var cb = new SolidBrush(Piezas.Color(p))) g.FillRectangle(cb, x, y + 3, 12, 12);
+                using (var tb = new SolidBrush(Ink)) g.DrawString(txt, Normal, tb, x + 15, y);
+                x += 15 + sz.Width + 6;
+                if (p != orden[orden.Length - 1])
+                    using (var tb = new SolidBrush(Dim)) g.DrawString("→", Normal, tb, x - 4, y);
+                x += 10;
+            }
+            Lines(g, new RectangleF(r.X + 16, r.Bottom - 46, r.Width - 20, 40),
+                ("Zona superpuesta (se cuenta dos veces si no se corta)", Theme.Accent),
+                (v.B("mismo") ? "También entre piezas del mismo tipo" : "Solo entre tipos de elemento distintos", Ink));
+        }
+
+        /// <summary>Unión columna-viga en planta con sus tableros, antes o después del corte.</summary>
+        private static void Union(Graphics g, RectangleF pane, bool cortado, bool columnaPrimero)
+        {
+            Map m = Map.Fit(Inset(pane, 24, 50, 24, 20), -12, -14, 132, 68);
+            const double t = 5, c = 40, y0 = 7.5, y1 = 32.5;
+            Color cc = Piezas.Color(Pieza.Columna), cv = Piezas.Color(Pieza.Viga);
+
+            ConcreteRect(g, m, 0, 0, c, c);
+            ConcreteRect(g, m, c, y0, 80, y1 - y0);
+
+            // Tableros de la columna (la cara derecha se interrumpe donde entra la viga).
+            Board(g, m, -t, -t, c + 2 * t, t, cc, false);
+            Board(g, m, -t, c, c + 2 * t, t, cc, false);
+            Board(g, m, -t, 0, t, c, cc, true);
+            bool recortarColumna = cortado && !columnaPrimero;
+            Board(g, m, c, 0, t, y0 - (recortarColumna ? t : 0), cc, true);
+            Board(g, m, c, y1 + (recortarColumna ? t : 0), t, c - y1 - (recortarColumna ? t : 0), cc, true);
+
+            // Tableros de los costados de la viga.
+            double x0 = cortado && columnaPrimero ? c + t : c;
+            Board(g, m, x0, y1, 120 - x0, t, cv, false);
+            Board(g, m, x0, y0 - t, 120 - x0, t, cv, false);
+
+            if (!cortado)
+                using (var hb = new HatchBrush(HatchStyle.ForwardDiagonal, Theme.Accent, Color.FromArgb(90, Theme.Accent)))
+                using (var pen = new Pen(Theme.Accent, 1.6f))
+                    foreach (double yy in new[] { y1, y0 - t })
+                    {
+                        PointF p0 = m.P(c, yy + t);
+                        var rc = new RectangleF(p0.X, p0.Y, m.L(t), m.L(t));
+                        g.FillRectangle(hb, rc);
+                        g.DrawRectangle(pen, rc.X, rc.Y, rc.Width, rc.Height);
+                    }
+
+            using (var tb = new SolidBrush(Ink))
+            {
+                PointF pc = m.P(c / 2, c / 2), pv = m.P(90, (y0 + y1) / 2);
+                var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+                g.DrawString("Columna", Small, tb, pc, sf);
+                g.DrawString("Viga", Small, tb, pv, sf);
+            }
+        }
+
         // ================================================================== Primitivas
 
         /// <summary>Espesor dibujado del tablero: al menos <paramref name="px"/> píxeles.</summary>

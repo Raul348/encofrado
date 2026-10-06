@@ -66,6 +66,28 @@ namespace Encofrado.Commands
         protected override Result Ejecutar(UIApplication app, ref string message) => Runner.Todo(app, ref message);
     }
 
+    /// <summary>Corta las intersecciones entre piezas de encofrado.</summary>
+    [Transaction(TransactionMode.Manual)]
+    public sealed class CmdCortar : Comando
+    {
+        protected override Result Ejecutar(UIApplication app, ref string message) => Runner.Cortar(app, ref message);
+    }
+
+    /// <summary>Selecciona el encofrado ya generado de un tipo de elemento (o todo).</summary>
+    public abstract class ComandoSeleccion : Comando
+    {
+        protected abstract Pieza? Pieza { get; }
+        protected override Result Ejecutar(UIApplication app, ref string message) => Runner.Seleccionar(app, Pieza);
+    }
+
+    [Transaction(TransactionMode.ReadOnly)] public sealed class CmdSelColumnas : ComandoSeleccion { protected override Pieza? Pieza => Core.Pieza.Columna; }
+    [Transaction(TransactionMode.ReadOnly)] public sealed class CmdSelVigas : ComandoSeleccion { protected override Pieza? Pieza => Core.Pieza.Viga; }
+    [Transaction(TransactionMode.ReadOnly)] public sealed class CmdSelZapatas : ComandoSeleccion { protected override Pieza? Pieza => Core.Pieza.Zapata; }
+    [Transaction(TransactionMode.ReadOnly)] public sealed class CmdSelLosas : ComandoSeleccion { protected override Pieza? Pieza => Core.Pieza.Losa; }
+    [Transaction(TransactionMode.ReadOnly)] public sealed class CmdSelMuros : ComandoSeleccion { protected override Pieza? Pieza => Core.Pieza.Muro; }
+    [Transaction(TransactionMode.ReadOnly)] public sealed class CmdSelEscaleras : ComandoSeleccion { protected override Pieza? Pieza => Core.Pieza.Escalera; }
+    [Transaction(TransactionMode.ReadOnly)] public sealed class CmdSelTodo : ComandoSeleccion { protected override Pieza? Pieza => null; }
+
     /// <summary>Tabla de metrado en Revit + exportación CSV.</summary>
     [Transaction(TransactionMode.Manual)]
     public sealed class CmdMetrado : Comando
@@ -189,9 +211,11 @@ namespace Encofrado.Commands
                     "1. Pulse el botón del elemento (o seleccione antes los elementos).\n" +
                     "2. Elija las caras a encofrar; la figura muestra tableros, puntales y yugos.\n" +
                     "3. \"Generar encofrado\" crea los tableros (Modelo genérico) descontando las zonas en contacto.\n" +
-                    "4. \"Metrado\" crea la tabla de planificación y exporta un CSV para Excel.\n\n" +
+                    "4. \"Cortar intersecciones\" recorta las zonas donde se superponen tableros de elementos vecinos.\n" +
+                    "5. \"Metrado\" crea la tabla de planificación y exporta un CSV para Excel.\n\n" +
                     "Caras habituales: columnas y zapatas → costados · vigas → costados y fondo · " +
                     "losas → fondo y frisos · muros → ambas caras y dinteles · escaleras → fondo y contrapasos.\n" +
+                    "\"Seleccionar\" selecciona el encofrado ya generado de cada tipo de elemento.\n" +
                     "\"Mostrar/Ocultar\" alterna la visibilidad del encofrado en la vista activa."
             }.Show();
             return Result.Succeeded;

@@ -35,6 +35,14 @@ namespace Encofrado
                 LargeImage = Iconos.Ribbon(Iconos.Extra.Todo, 32),
                 Image = Iconos.Ribbon(Iconos.Extra.Todo, 16)
             });
+            todo.AddItem(new PushButtonData("EncCortar", "Cortar\nintersecciones", path, typeof(CmdCortar).FullName)
+            {
+                ToolTip = "Recorta las zonas donde se superponen tableros de elementos vecinos (columna-viga, viga-losa, muros en L o T).",
+                LongDescription = "El encofrado de mayor prioridad queda completo y al de menor prioridad se le resta la parte superpuesta. " +
+                                  "El área ENC_Area se recalcula para que el metrado no cuente dos veces las esquinas.",
+                LargeImage = Iconos.Ribbon(Iconos.Extra.Cortar, 32),
+                Image = Iconos.Ribbon(Iconos.Extra.Cortar, 16)
+            });
 
             RibbonPanel herr = app.CreateRibbonPanel(TabName, "Metrado y vista");
             herr.AddItem(new PushButtonData("EncMetrado", "Metrado", path, typeof(CmdMetrado).FullName)
@@ -43,6 +51,26 @@ namespace Encofrado
                 LargeImage = Iconos.Ribbon(Iconos.Extra.Metrado, 32),
                 Image = Iconos.Ribbon(Iconos.Extra.Metrado, 16)
             });
+            var sel = (PulldownButton)herr.AddItem(new PulldownButtonData("EncSeleccionar", "Seleccionar")
+            {
+                ToolTip = "Selecciona el encofrado ya generado de un tipo de elemento.",
+                LargeImage = Iconos.Ribbon(Iconos.Extra.Seleccionar, 32),
+                Image = Iconos.Ribbon(Iconos.Extra.Seleccionar, 16)
+            });
+            AddSel(sel, path, typeof(CmdSelColumnas), Pieza.Columna);
+            AddSel(sel, path, typeof(CmdSelVigas), Pieza.Viga);
+            AddSel(sel, path, typeof(CmdSelZapatas), Pieza.Zapata);
+            AddSel(sel, path, typeof(CmdSelLosas), Pieza.Losa);
+            AddSel(sel, path, typeof(CmdSelMuros), Pieza.Muro);
+            AddSel(sel, path, typeof(CmdSelEscaleras), Pieza.Escalera);
+            sel.AddSeparator();
+            sel.AddPushButton(new PushButtonData("EncSelTodo", "Todo el encofrado", path, typeof(CmdSelTodo).FullName)
+            {
+                ToolTip = "Selecciona todas las piezas de encofrado del proyecto.",
+                LargeImage = Iconos.Ribbon(Iconos.Extra.Seleccionar, 32),
+                Image = Iconos.Ribbon(Iconos.Extra.Seleccionar, 16)
+            });
+
             herr.AddStackedItems(
                 new PushButtonData("EncVer", "Mostrar/Ocultar", path, typeof(CmdVisibilidad).FullName)
                 {
@@ -66,11 +94,21 @@ namespace Encofrado
             return Result.Succeeded;
         }
 
+        private static void AddSel(PulldownButton menu, string path, Type cmd, Pieza p)
+        {
+            menu.AddPushButton(new PushButtonData("EncSel" + Piezas.Plural(p), "Encofrado de " + Piezas.Plural(p).ToLowerInvariant(), path, cmd.FullName)
+            {
+                ToolTip = $"Selecciona todo el encofrado de {Piezas.Plural(p).ToLowerInvariant()} del proyecto.",
+                LargeImage = Iconos.Ribbon(p, 32),
+                Image = Iconos.Ribbon(p, 16)
+            });
+        }
+
         public Result OnShutdown(UIControlledApplication app) => Result.Succeeded;
 
         private static void Add(RibbonPanel panel, string path, Type cmd, Pieza p, string tip)
         {
-            panel.AddItem(new PushButtonData("Enc" + Piezas.Plural(p), Piezas.Plural(p), path, cmd.FullName)
+            panel.AddItem(new PushButtonData("Enc" + Piezas.Plural(p), "Encofrado\n" + Piezas.Nombre(p), path, cmd.FullName)
             {
                 ToolTip = tip,
                 LongDescription = "Seleccione los elementos (o pulse el botón y selecciónelos), elija las caras y el espesor del tablero. " +

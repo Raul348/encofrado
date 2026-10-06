@@ -9,7 +9,7 @@ namespace Encofrado.UI
     /// <summary>Íconos ("figuritas") del encofrado dibujados por código: concreto gris y tableros de color.</summary>
     internal static partial class Iconos
     {
-        public enum Extra { Todo, Metrado, Eliminar, Visibilidad, Ayuda }
+        public enum Extra { Todo, Cortar, Seleccionar, Metrado, Eliminar, Visibilidad, Ayuda }
 
         private static readonly Color Concreto = Color.FromArgb(196, 200, 206);
         private static readonly Color Borde = Color.FromArgb(90, 96, 105);
@@ -125,6 +125,41 @@ namespace Encofrado.UI
                         Box(g, new SolidBrush(Piezas.Color(Pieza.Zapata)), ep, 1, 29, 30, 2.5f, k);
                         g.DrawLine(bp, 4 * k, 6 * k, 15 * k, 2 * k);
                         g.DrawLine(bp, 15 * k, 2 * k, 26 * k, 6 * k);
+                    }
+                    break;
+
+                case Extra.Cortar:
+                    using (var cb = new SolidBrush(Piezas.Color(Pieza.Columna)))
+                    using (var vb = new SolidBrush(Color.FromArgb(200, Piezas.Color(Pieza.Viga))))
+                    using (var ep = new Pen(Borde, Math.Max(1f, k)))
+                    using (var xp = new Pen(Color.FromArgb(196, 38, 38), 2.2f * k) { DashStyle = DashStyle.Dash })
+                    using (var hb = new HatchBrush(HatchStyle.ForwardDiagonal, Color.FromArgb(196, 38, 38), Color.FromArgb(120, 196, 38, 38)))
+                    {
+                        Box(g, cb, ep, 3, 3, 8, 26, k);           // tablero de columna
+                        Box(g, vb, ep, 7, 11, 22, 7, k);          // tablero de viga (se superpone)
+                        g.FillRectangle(hb, 7 * k, 11 * k, 4 * k, 7 * k);
+                        g.DrawLine(xp, 11 * k, 6 * k, 11 * k, 25 * k);
+                        // tijera
+                        using (var sp = new Pen(Color.FromArgb(34, 47, 68), 1.6f * k))
+                        {
+                            g.DrawEllipse(sp, 17 * k, 22 * k, 4 * k, 4 * k);
+                            g.DrawEllipse(sp, 23 * k, 22 * k, 4 * k, 4 * k);
+                            g.DrawLine(sp, 20 * k, 22 * k, 26 * k, 18 * k);
+                            g.DrawLine(sp, 24 * k, 22 * k, 18 * k, 18 * k);
+                        }
+                    }
+                    break;
+
+                case Extra.Seleccionar:
+                    using (var cb = new SolidBrush(Piezas.Color(Pieza.Viga)))
+                    using (var ep = new Pen(Color.FromArgb(25, 105, 200), 1.6f * k) { DashStyle = DashStyle.Dash })
+                    using (var bp = new Pen(Borde, Math.Max(1f, k)))
+                    using (var ab = new SolidBrush(Color.FromArgb(34, 47, 68)))
+                    {
+                        Box(g, cb, bp, 4, 6, 18, 14, k);
+                        g.DrawRectangle(ep, 2 * k, 4 * k, 22 * k, 18 * k);
+                        var arrow = new[] { P(17, 14, k), P(17, 30, k), P(21, 26, k), P(24, 31, k), P(26.5f, 30, k), P(23.5f, 25, k), P(28, 24.5f, k) };
+                        g.FillPolygon(ab, arrow);
                     }
                     break;
 

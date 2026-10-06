@@ -99,6 +99,101 @@ namespace Encofrado.Commands
             return Procesar(uiapp, items, opciones, values, "ENCOFRADO - Edificación", ref message);
         }
 
+        // ------------------------------------------------------------------ Cortar intersecciones
+
+        public static Result Cortar(UIApplication uiapp, ref string message)
+        {
+            UIDocument uidoc = Proyecto(uiapp);
+            if (uidoc == null) return Result.Cancelled;
+            Document doc = uidoc.Document;
+
+            List<DirectShape> todas = Almacen.Todos(doc).ToList();
+            if (todas.Count == 0)
+            {
+                TaskDialog.Show(App.Name, "Todavía no hay encofrado en el proyecto. Genere primero el encofrado de los elementos.");
+                return Result.Cancelled;
+            }
+
+            // Selección previa: piezas de encofrado o elementos estructurales (se toma su encofrado).
+            var elegidas = new HashSet<ElementId>();
+            foreach (ElementId id in uidoc.Selection.GetElementIds())
+            {
+                Element e = doc.GetElement(id);
+                if (e is DirectShape ds && ds.ApplicationId == Almacen.AppId) elegidas.Add(id);
+                else if (e != null && Piezas.De(e).HasValue) foreach (ElementId x in Almacen.DeElemento(doc, e)) elegidas.Add(x);
+            }
+
+            var form = new ParamForm(App.Name, "enc_cortar", "CORTAR INTERSECCIONES de encofrado",
+                $"{todas.Count} pieza(s) de encofrado en el proyecto" + (elegidas.Count > 0 ? $" · {elegidas.Count} seleccionada(s)" : ""));
+            form.Section("Prioridad");
+            form.Choice("orden", "Queda completo primero", Cortador.Ordenes.Select(Cortador.Texto).ToArray(), 0);
+            form.Note("El encofrado de mayor prioridad queda entero; al de menor prioridad se le recorta la parte que se superpone.");
+            form.Section("Alcance");
+            form.Choice("alcance", "Piezas a revisar",
+                new[] { "Todo el encofrado del proyecto", "Solo el encofrado seleccionado" }, elegidas.Count > 0 ? 1 : 0);
+            form.Chk("mismo", "Cortar también entre piezas del mismo tipo (vigas que se cruzan, muros en L o T)", true);
+            form.Figure = (g, r, v) => Figuras.Cortar(g, r, v);
+            form.Validator = v => v.I("alcance") == 1 && elegidas.Count == 0
+                ? "No hay encofrado seleccionado. Seleccione piezas de encofrado o elementos estructurales, o elija todo el proyecto."
+                : null;
+            form.AcceptText = "Cortar intersecciones";
+
+            FormValues values;
+            using (form)
+            {
+                if (form.ShowDialog(new RevitWindow(uiapp.MainWindowHandle)) != DialogResult.OK) return Result.Cancelled;
+                values = form.Values();
+            }
+
+            List<DirectShape> piezas = values.I("alcance") == 1
+                ? todas.Where(d => elegidas.Contains(d.Id)).ToList()
+                : todas;
+
+            Cortador.Resultado res;
+            using (var t = new Transaction(doc, "ENCOFRADO - Cortar intersecciones"))
+            {
+                t.Start();
+                FailureHandlingOptions fo = t.GetFailureHandlingOptions();
+                fo.SetFailuresPreprocessor(new SinAdvertencias());
+                t.SetFailureHandlingOptions(fo);
+                res = Cortador.Cortar(doc, piezas, Cortador.Ordenes[Math.Max(0, values.I("orden"))], values.B("mismo"));
+                t.Commit();
+            }
+
+            var td = new TaskDialog(App.Name)
+            {
+                MainInstruction = res.Cortadas + res.Eliminadas > 0
+                    ? $"Se cortaron {res.Cortadas} pieza(s): {Almacen.M2(res.AreaQuitada):N2} m² superpuestos descontados"
+                    : "No se encontraron intersecciones entre las piezas de encofrado.",
+                MainContent = $"Piezas revisadas: {res.Revisadas}\n" +
+                              (res.Eliminadas > 0 ? $"Piezas eliminadas (quedaban totalmente dentro de otra): {res.Eliminadas}\n" : "") +
+                              "El área ENC_Area de las piezas cortadas ya está actualizada para el metrado."
+            };
+            if (res.Errores.Count > 0) td.ExpandedContent = "Errores:\n" + string.Join("\n", res.Errores.Take(20));
+            td.Show();
+            return Result.Succeeded;
+        }
+
+        // ------------------------------------------------------------------ Seleccionar encofrado por tipo
+
+        public static Result Seleccionar(UIApplication uiapp, Pieza? p)
+        {
+            UIDocument uidoc = Proyecto(uiapp);
+            if (uidoc == null) return Result.Cancelled;
+            List<ElementId> ids = Almacen.Todos(uidoc.Document)
+                .Where(d => !p.HasValue || Almacen.PiezaDe(d) == p)
+                .Select(d => d.Id).ToList();
+            if (ids.Count == 0)
+            {
+                TaskDialog.Show(App.Name, p.HasValue
+                    ? $"No hay encofrado de {Piezas.Plural(p.Value).ToLowerInvariant()} en el proyecto."
+                    : "No hay encofrado en el proyecto.");
+                return Result.Cancelled;
+            }
+            uidoc.Selection.SetElementIds(ids);
+            return Result.Succeeded;
+        }
+
         // ------------------------------------------------------------------ Común
 
         private static void Opciones(ParamForm form, bool concreto, bool muros)
@@ -107,6 +202,7 @@ namespace Encofrado.Commands
             form.Num("esp", "Espesor del tablero", 1.8, "cm", 1, 0.5, 10);
             form.Chk("desc", "Descontar contacto con otros elementos", true);
             form.Chk("reemp", "Reemplazar el encofrado existente de estos elementos", true);
+            form.Chk("cortar", "Cortar intersecciones entre encofrados al terminar", true);
             if (concreto) form.Chk("conc", "Solo concreto vaciado en obra (omite acero, madera, prefabricado)", true);
             if (muros) form.Chk("estr", "Solo muros estructurales (omite tabiquería)", true);
         }
@@ -179,6 +275,7 @@ namespace Encofrado.Commands
         {
             Document doc = uiapp.ActiveUIDocument.Document;
             var rep = new Reporte();
+            Cortador.Resultado corte = null;
             bool reemplazar = v.B("reemp"), conc = v.B("conc"), estr = v.B("estr");
 
             using (var t = new Transaction(doc, titulo))
@@ -191,6 +288,7 @@ namespace Encofrado.Commands
                 Almacen.AsegurarParametros(doc, uiapp.Application);
                 var materiales = new Dictionary<Pieza, ElementId>();
                 var vecinos = new Vecinos(doc);
+                var creadas = new List<(DirectShape ds, Pieza p, Cara cara)>();
 
                 foreach (var (host, p) in items)
                 {
@@ -201,6 +299,7 @@ namespace Encofrado.Commands
                     using (var st = new SubTransaction(doc))
                     {
                         st.Start();
+                        var nuevas = new List<(DirectShape, Pieza, Cara)>();
                         try
                         {
                             if (reemplazar)
@@ -211,11 +310,11 @@ namespace Encofrado.Commands
                             List<Tablero> tabs = Constructor.Construir(doc, host, opciones[p], vecinos, materiales[p], rep.Avisos);
                             foreach (var grupo in tabs.GroupBy(x => x.Cara))
                             {
-                                Almacen.Crear(doc, host, p, grupo.Key, grupo.ToList());
-                                rep.Sumar(p, grupo.Key, grupo.Sum(x => x.Area));
+                                nuevas.Add((Almacen.Crear(doc, host, p, grupo.Key, grupo.ToList()), p, grupo.Key));
                                 rep.Tableros += grupo.Count();
                             }
                             st.Commit();
+                            creadas.AddRange(nuevas);
                             rep.Elementos++;
                         }
                         catch (Exception ex)
@@ -226,6 +325,16 @@ namespace Encofrado.Commands
                     }
                 }
 
+                // Cortar las intersecciones con el resto del encofrado (prioridad por defecto).
+                if (rep.Elementos > 0 && v.B("cortar"))
+                {
+                    doc.Regenerate();
+                    corte = Cortador.Cortar(doc, Almacen.Todos(doc).ToList(), Cortador.Ordenes[0], true);
+                }
+
+                foreach (var (ds, p, cara) in creadas)
+                    if (ds.IsValidObject) rep.Sumar(p, cara, Almacen.Area(ds));
+
                 if (rep.Elementos > 0) t.Commit(); else t.RollBack();
             }
 
@@ -234,7 +343,11 @@ namespace Encofrado.Commands
                 MainInstruction = rep.Elementos > 0
                     ? $"Encofrado generado en {rep.Elementos} elemento(s): {rep.TotalM2:N2} m²"
                     : "No se generó encofrado.",
-                MainContent = rep.Areas.Count > 0 ? rep.Tabla() + "\nUse \"Metrado\" para ver la tabla y exportar a Excel (CSV)." : "",
+                MainContent = (rep.Areas.Count > 0 ? rep.Tabla() : "") +
+                              (corte != null && corte.Cortadas + corte.Eliminadas > 0
+                                  ? $"\nIntersecciones cortadas: {corte.Cortadas + corte.Eliminadas} pieza(s), {Almacen.M2(corte.AreaQuitada):N2} m² superpuestos descontados."
+                                  : "") +
+                              (rep.Areas.Count > 0 ? "\nUse \"Metrado\" para ver la tabla y exportar a Excel (CSV)." : ""),
             };
             var extra = new List<string>();
             if (rep.Errores.Count > 0) extra.Add("Errores:\n" + string.Join("\n", rep.Errores.Take(20)));

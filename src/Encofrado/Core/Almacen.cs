@@ -122,6 +122,25 @@ namespace Encofrado.Core
             return ds;
         }
 
+        /// <summary>Tipo de elemento al que pertenece una pieza de encofrado.</summary>
+        public static Pieza? PiezaDe(Element ds)
+        {
+            string n = Texto(ds, PElemento);
+            foreach (Pieza p in Piezas.Todas)
+                if (Piezas.Nombre(p) == n) return p;
+            return null;
+        }
+
+        /// <summary>Actualiza el área (pies²) y el comentario de una pieza.</summary>
+        public static void FijarArea(Element ds, double area, string nota = null)
+        {
+            Parameter pa = ds.LookupParameter(PArea);
+            if (pa != null && !pa.IsReadOnly) pa.Set(area);
+            Parameter com = ds.get_Parameter(BuiltInParameter.ALL_MODEL_INSTANCE_COMMENTS);
+            if (com != null && !com.IsReadOnly)
+                com.Set($"ENCOFRADO {Texto(ds, PElemento)} - {M2(area):0.00} m²" + (nota != null ? " (" + nota + ")" : ""));
+        }
+
         private static void Set(Element e, string name, string value)
         {
             Parameter p = e.LookupParameter(name);

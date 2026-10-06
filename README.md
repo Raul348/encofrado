@@ -7,18 +7,23 @@ Cada botón tiene su figurita en la cinta:
 
 ![Íconos](docs/img/enc_iconos.png)
 
-| Botón | Caras que encofra (se pueden activar o desactivar) |
+| Botón | Qué hace |
 |---|---|
-| **Columnas** | Caras laterales: rectangulares, **circulares** e **irregulares** (L, T, cruz, polígonos) |
-| **Vigas** | Costados y fondo de viga |
-| **Zapatas** | Costados: zapatas aisladas, cimientos corridos y losas de cimentación |
-| **Losas** | Fondo de losa y frisos (bordes y aberturas) |
-| **Muros** | Ambas caras, extremos, jambas y fondos de vanos (dinteles) |
-| **Escaleras** | Fondo (losa inclinada y descansos), costados y contrapasos |
+| **Encofrado Columna** | Caras laterales: rectangulares, **circulares** e **irregulares** (L, T, cruz, polígonos) |
+| **Encofrado Viga** | Costados y fondo de viga |
+| **Encofrado Zapata** | Costados: zapatas aisladas, cimientos corridos y losas de cimentación |
+| **Encofrado Losa** | Fondo de losa y frisos (bordes y aberturas) |
+| **Encofrado Muro** | Ambas caras, extremos, jambas y fondos de vanos (dinteles) |
+| **Encofrado Escalera** | Fondo (losa inclinada y descansos), costados y contrapasos |
 | **Encofrar todo** | Todos los elementos de la vista activa o del proyecto, de una vez |
+| **Cortar intersecciones** | Recorta las zonas donde se superponen tableros de elementos vecinos |
+| **Seleccionar** | Menú para seleccionar el encofrado ya generado: de columnas, de vigas, de zapatas, de losas, de muros, de escaleras o todo |
 | **Metrado** | Tabla de planificación en Revit y archivo CSV para Excel |
 | **Mostrar/Ocultar** | Alterna la visibilidad del encofrado en la vista activa |
 | **Eliminar** | Borra el encofrado de los elementos seleccionados, o de todo el proyecto |
+
+Los botones de cada elemento (columna, viga, zapata, losa, muro, escalera) funcionan igual:
+pulse el botón, seleccione los elementos y pulse **Finalizar**. También puede seleccionar los elementos antes de pulsar el botón.
 
 Cada ventana muestra la **figura del elemento** con sus tableros, puntales, yugos, barrotes o estacas.
 La figura cambia según las caras elegidas y muestra el área aproximada a encofrar.
@@ -36,10 +41,26 @@ La figura cambia según las caras elegidas y muestra el área aproximada a encof
 4. Crea los tableros como **Modelo genérico**: una pieza por elemento y tipo de cara, con un color por tipo de elemento.
    Cada pieza lleva los parámetros compartidos `ENC_Elemento`, `ENC_Cara`, `ENC_Area`, `ENC_Nivel` y `ENC_IdElemento`.
 5. Al volver a ejecutar, reemplaza el encofrado anterior de esos elementos. Así no se duplica.
+6. Corta las intersecciones con el encofrado vecino. Se puede desactivar.
 
 Opciones:
 - *Solo concreto vaciado en obra* omite elementos de acero, madera y prefabricados.
 - *Solo muros estructurales* omite la tabiquería.
+
+## Cortar intersecciones
+Cada elemento se encofra por separado, así que en las uniones dos tableros pueden ocupar el mismo espacio.
+Pasa en la esquina columna-viga, viga-losa, y en los muros en L o T. Esas zonas se contarían dos veces en el metrado.
+
+El botón **Cortar intersecciones** las recorta:
+- El encofrado de **mayor prioridad queda completo**, y al de menor prioridad se le resta la parte superpuesta.
+- Prioridad por defecto: columnas → muros → vigas → losas → escaleras → zapatas. Hay otros órdenes para elegir.
+- Puede revisar todo el encofrado del proyecto o solo el seleccionado. Si selecciona elementos estructurales, se toma su encofrado.
+- Opcionalmente corta también entre piezas del mismo tipo, como vigas que se cruzan o muros en L o T.
+- El área `ENC_Area` de cada pieza cortada se recalcula, así el metrado queda correcto.
+
+Al generar encofrado, la opción **"Cortar intersecciones entre encofrados al terminar"** viene activada por defecto: hace este corte automáticamente.
+
+![Cortar intersecciones](docs/img/enc_cortar.png)
 
 ## Metrado
 El botón **Metrado** crea la tabla **"ENCOFRADO - Metrado"**:
@@ -104,7 +125,8 @@ También puede abrir `Encofrado.sln` en Visual Studio 2022. La versión de Revit
 1. Pulse el botón del elemento, o seleccione antes los elementos.
 2. Elija las caras a encofrar y el espesor del tablero.
 3. Pulse **Generar encofrado**. Al final verá un resumen con los m² por elemento y cara.
-4. Pulse **Metrado** para ver la tabla y exportar el CSV.
+4. Si generó elementos por separado o con el corte desactivado, pulse **Cortar intersecciones**.
+5. Pulse **Metrado** para ver la tabla y exportar el CSV.
 
 El programa recuerda los últimos valores de cada ventana en `%AppData%\ENCOFRADO`.
 
@@ -113,8 +135,8 @@ El programa recuerda los últimos valores de cada ventana en `%AppData%\ENCOFRAD
 ```
 src/Encofrado/
   App.cs                    Pestaña ENCOFRADO y botones con sus íconos
-  Commands/                 Comandos por elemento, encofrar todo, metrado, mostrar/ocultar, eliminar
-  Core/                     Reglas por elemento, tableros (extrusión + descuento de contactos), parámetros, metrado, unidades, geometría
+  Commands/                 Comandos por elemento, encofrar todo, cortar intersecciones, seleccionar, metrado, mostrar/ocultar, eliminar
+  Core/                     Reglas por elemento, tableros (extrusión + descuento de contactos), corte de intersecciones, parámetros, metrado
   UI/                       Ventana de datos con figura, dibujo, figuras del encofrado e íconos
 ```
 
