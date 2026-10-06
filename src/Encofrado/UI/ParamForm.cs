@@ -7,8 +7,9 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Windows.Forms;
+using Encofrado.Core;
 
-namespace Comun
+namespace Encofrado.UI
 {
     /// <summary>
     /// Ventana de datos genérica: a la izquierda la figura del elemento (se redibuja con cada cambio)
@@ -16,12 +17,11 @@ namespace Comun
     /// </summary>
     public sealed class ParamForm : Form
     {
-        private enum Kind { Num, Txt, Bar, Chk, Choice }
+        private enum Kind { Num, Txt, Chk, Choice }
 
         private readonly string _app;
         private readonly string _id;
         private readonly Button _ok;
-        private readonly IList<BarItem> _bars;
         private readonly TableLayoutPanel _grid;
         private readonly Panel _preview;
         private readonly Dictionary<string, (Kind kind, Control ctrl)> _inputs = new Dictionary<string, (Kind, Control)>();
@@ -38,11 +38,10 @@ namespace Comun
         [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public string AcceptText { get => _ok.Text; set => _ok.Text = value; }
 
-        public ParamForm(string app, string id, string title, string subtitle, IList<BarItem> bars = null)
+        public ParamForm(string app, string id, string title, string subtitle)
         {
             _app = app;
             _id = id;
-            _bars = bars ?? new List<BarItem>();
 
             Text = app + " - " + title;
             Font = new Font("Segoe UI", 9f);
@@ -170,18 +169,6 @@ namespace Comun
             _inputs[key] = (Kind.Txt, t);
         }
 
-        public void Bar(string key, string label, double defMm)
-        {
-            var cb = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 205 };
-            foreach (BarItem b in _bars) cb.Items.Add(b);
-            if (_bars.Count > 0)
-                cb.SelectedItem = _bars.OrderBy(b => Math.Abs(b.Mm - defMm)).First();
-            cb.SelectedIndexChanged += Changed;
-            AddRow(label, cb, null);
-            _grid.SetColumnSpan(cb, 2);
-            _inputs[key] = (Kind.Bar, cb);
-        }
-
         public void Chk(string key, string label, bool def)
         {
             var c = new CheckBox { Text = label, Checked = def, AutoSize = true, Margin = new Padding(2, 5, 0, 3) };
@@ -239,7 +226,6 @@ namespace Comun
                 {
                     case Kind.Num: d[kv.Key] = (double)((NumericUpDown)c).Value; break;
                     case Kind.Txt: d[kv.Key] = ((TextBox)c).Text; break;
-                    case Kind.Bar: d[kv.Key] = ((ComboBox)c).SelectedItem as BarItem; break;
                     case Kind.Chk: d[kv.Key] = ((CheckBox)c).Checked; break;
                     case Kind.Choice: d[kv.Key] = ((ComboBox)c).SelectedIndex; break;
                 }
@@ -251,9 +237,6 @@ namespace Comun
         {
             try
             {
-                foreach (var kv in _inputs)
-                    if (kv.Value.kind == Kind.Bar && ((ComboBox)kv.Value.ctrl).SelectedItem == null)
-                        throw new FormatException("Seleccione todos los diámetros de barra.");
                 string error = Validator?.Invoke(Values());
                 if (error != null) throw new FormatException(error);
                 SaveSettings();
@@ -304,7 +287,6 @@ namespace Comun
                     {
                         case Kind.Num: val = ((NumericUpDown)c).Value.ToString(CultureInfo.InvariantCulture); break;
                         case Kind.Txt: val = ((TextBox)c).Text; break;
-                        case Kind.Bar: val = (((ComboBox)c).SelectedItem as BarItem)?.Name ?? ""; break;
                         case Kind.Chk: val = ((CheckBox)c).Checked ? "1" : "0"; break;
                         default: val = ((ComboBox)c).SelectedIndex.ToString(CultureInfo.InvariantCulture); break;
                     }
@@ -335,11 +317,6 @@ namespace Comun
                                 ((NumericUpDown)c).Value = Math.Max(((NumericUpDown)c).Minimum, Math.Min(((NumericUpDown)c).Maximum, d));
                             break;
                         case Kind.Txt: ((TextBox)c).Text = val; break;
-                        case Kind.Bar:
-                            var cb = (ComboBox)c;
-                            BarItem b = cb.Items.Cast<BarItem>().FirstOrDefault(x => x.Name == val);
-                            if (b != null) cb.SelectedItem = b;
-                            break;
                         case Kind.Chk: ((CheckBox)c).Checked = val == "1"; break;
                         case Kind.Choice:
                             var ch = (ComboBox)c;

@@ -111,12 +111,11 @@ El programa recuerda los últimos valores de cada ventana en `%AppData%\ENCOFRAD
 ## Estructura del código
 
 ```
-src/Comun/                  Ventana de datos con figura, primitivas de dibujo, unidades y geometría local
 src/Encofrado/
   App.cs                    Pestaña ENCOFRADO y botones con sus íconos
   Commands/                 Comandos por elemento, encofrar todo, metrado, mostrar/ocultar, eliminar
-  Core/                     Reglas por elemento, tableros (extrusión + descuento de contactos), parámetros, metrado
-  UI/                       Figuras del encofrado e íconos
+  Core/                     Reglas por elemento, tableros (extrusión + descuento de contactos), parámetros, metrado, unidades, geometría
+  UI/                       Ventana de datos con figura, dibujo, figuras del encofrado e íconos
 ```
 
 Para agregar otro elemento estructural, agregue un valor a `Pieza` y sus reglas en `Piezas` (`Core/Pieza.cs`).

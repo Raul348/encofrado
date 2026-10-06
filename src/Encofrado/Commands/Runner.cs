@@ -5,7 +5,6 @@ using System.Windows.Forms;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
-using Comun;
 using Encofrado.Core;
 using Encofrado.UI;
 using TaskDialog = Autodesk.Revit.UI.TaskDialog;

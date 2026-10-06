@@ -2,9 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
-using Comun;
 using Encofrado.Core;
-using static Comun.Dibujo;
+using static Encofrado.UI.Dibujo;
 
 namespace Encofrado.UI
 {

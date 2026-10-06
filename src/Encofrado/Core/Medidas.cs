@@ -1,6 +1,6 @@
 using System;
 using Autodesk.Revit.DB;
-using Comun;
+using Encofrado.UI;
 
 namespace Encofrado.Core
 {

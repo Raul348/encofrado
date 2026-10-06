@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using Autodesk.Revit.ApplicationServices;
 using Autodesk.Revit.DB;
-using Comun;
+using Encofrado.UI;
 
 namespace Encofrado.Core
 {

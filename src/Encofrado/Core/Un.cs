@@ -1,4 +1,4 @@
-namespace Comun
+namespace Encofrado.Core
 {
     /// <summary>Conversión entre unidades internas de Revit (pies) y unidades métricas.</summary>
     internal static class Un

@@ -4,7 +4,6 @@ using System.IO;
 using System.Windows.Media.Imaging;
 using Encofrado.Core;
 using ImageSource = System.Windows.Media.ImageSource;
-using Comun;
 
 namespace Encofrado.UI
 {
